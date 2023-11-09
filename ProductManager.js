@@ -1,68 +1,81 @@
-const fs = require("fs");
+const fs = require("fs").promises;
 
 class ProductManager {
-  constructor(path) {
-    this.path = path;
+  constructor(filePath) {
+    this.path = filePath;
+    this.products = [];
+    this.loadProducts()
+      .then((loadedProducts) => {
+        this.products = loadedProducts;
+      })
+      .catch((error) => {
+        console.error("Error loading products:", error);
+      });
+  }
+
+  async loadProducts() {
+    try {
+      const data = await fs.readFile(this.path, "utf8");
+      return JSON.parse(data);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async saveProducts() {
+    const data = JSON.stringify(this.products, null, 2);
+    await fs.writeFile(this.path, data, "utf8");
   }
 
   async addProduct(product) {
-    try {
-      const products = await this.getProducts();
-      products.push(product);
-      await this.saveProducts(products);
-    } catch (error) {
-      console.error("Error adding product:", error);
-    }
-  }
+    // Asigna una id autoincrementable
+    const newProduct = {
+      id: this.products.length + 1,
+      ...product,
+    };
 
-  async getProduct(id) {
-    try {
-      const products = await this.getProducts();
-      return products.find((product) => product.id === id);
-    } catch (error) {
-      console.error("Error getting product:", error);
-    }
-  }
+    this.products.push(newProduct);
+    await this.saveProducts();
 
-  async updateProduct(id, updatedProduct) {
-    try {
-      const products = await this.getProducts();
-      const index = products.findIndex((product) => product.id === id);
-      if (index !== -1) {
-        products[index] = updatedProduct;
-        await this.saveProducts(products);
-        return true; // Indica que la actualización fue exitosa
-      } else {
-        console.error("Product not found");
-        return false; // Indica que el producto no fue encontrado
-      }
-    } catch (error) {
-      console.error("Error updating product:", error);
-      return false; // Indica que ocurrió un error durante la actualización
-    }
-  }
-
-  async deleteProduct(id) {
-    try {
-      const products = await this.getProducts();
-      const index = products.findIndex((product) => product.id === id);
-      if (index !== -1) {
-        products.splice(index, 1);
-        await this.saveProducts(products);
-      } else {
-        console.error("Product not found");
-      }
-    } catch (error) {
-      console.error("Error borrando producto :", error);
-    }
+    return newProduct;
   }
 
   async getProducts() {
-    try {
-      const data = await fs.promises.readFile(this.path, "utf8");
-      return JSON.parse(data);
-    } catch (error) {
-      console.error("Error reading products:", error);
+    return this.products;
+  }
+
+  async getProductsById(productId) {
+    const product = this.products.find((p) => p.id === productId);
+    return product;
+  }
+
+  async updateProducts(productId, updatedData) {
+    const index = this.products.findIndex((p) => p.id === productId);
+
+    if (index !== -1) {
+      // Excluir la propiedad 'id' del objeto 'updatedData'
+      const { id, ...restUpdatedData } = updatedData;
+
+      // Actualized las propiedades del product con los datos actualized
+      this.products[index] = { ...this.products[index], ...restUpdatedData };
+      await this.saveProducts();
+      return this.products[index];
+    } else {
+      return null; // No se  a encontrado ningún product con el ID especificado
+    }
+  }
+
+  async deleteProducts(productId) {
+    const index = this.products.findIndex((p) => p.id === productId);
+
+    if (index !== -1) {
+      // deletea product del array
+      this.products.splice(index, 1);
+      await this.saveProducts();
+      return true; // Indicar que se le di  delete el product correctamente
+    } else {
+      return false; // No se a encontrado ningún product con el ID especificado
     }
   }
 }
+const productsManager = new ProductManager("products.json");
