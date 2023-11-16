@@ -1,81 +1,70 @@
-const fs = require("fs").promises;
+const express = require("express");
+const bodyParser = require("body-parser");
+const ProductManager = require("./ProductManager"); // Asegúrate de que la ruta sea correcta
 
-class ProductManager {
-  constructor(filePath) {
-    this.path = filePath;
-    this.products = [];
-    this.loadProducts()
-      .then((loadedProducts) => {
-        this.products = loadedProducts;
-      })
-      .catch((error) => {
-        console.error("Error loading products:", error);
-      });
+const app = express();
+const port = 8080;
+
+app.use(bodyParser.json());
+
+const productsManager =  new ProductManager("products.json");
+
+// Obtiene todos los productos
+app.get("/products", async (req, res) => {
+  const products = await productsManager.getProducts();
+  res.json(products);
+});
+
+// Obtiene un producto por ID
+app.get("/products/:id", async (req, res) => {
+  const productId = parseInt(req.params.id);
+  const product = await productsManager.getProductById(productId);
+
+  if (product) {
+    res.json(product);
+  } else {
+    res.status(404).json({ error: "Product not found" });
   }
+});
 
-  async loadProducts() {
-    try {
-      const data = await fs.readFile(this.path, "utf8");
-      return JSON.parse(data);
-    } catch (error) {
-      return [];
-    }
+// Agrega un nuevo producto
+app.post("/products", async (req, res) => {
+  const newProduct = req.body;
+
+  try {
+    const addedProduct = await productsManager.addProduct(newProduct);
+    res.json(addedProduct);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
+});
 
-  async saveProducts() {
-    const data = JSON.stringify(this.products, null, 2);
-    await fs.writeFile(this.path, data, "utf8");
+// Actualiza un producto por ID
+app.put("/products/:id", async (req, res) => {
+  const productId = parseInt(req.params.id);
+  const updatedData = req.body;
+
+  const updatedProduct = await productsManager.updateProducts(productId, updatedData);
+
+  if (updatedProduct) {
+    res.json(updatedProduct);
+  } else {
+    res.status(404).json({ error: "Product not found" });
   }
+});
 
-  async addProduct(product) {
-    // Asigna una id autoincrementable
-    const newProduct = {
-      id: this.products.length + 1,
-      ...product,
-    };
+// Elimina un producto por ID
+app.delete("/products/:id", async (req, res) => {
+  const productId = parseInt(req.params.id);
+  const deletionResult = await productsManager.deleteProducts(productId);
 
-    this.products.push(newProduct);
-    await this.saveProducts();
-
-    return newProduct;
+  if (deletionResult) {
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: "Product not found" });
   }
+});
 
-  async getProducts() {
-    return this.products;
-  }
-
-  async getProductsById(productId) {
-    const product = this.products.find((p) => p.id === productId);
-    return product;
-  }
-
-  async updateProducts(productId, updatedData) {
-    const index = this.products.findIndex((p) => p.id === productId);
-
-    if (index !== -1) {
-      // Excluir la propiedad 'id' del objeto 'updatedData'
-      const { id, ...restUpdatedData } = updatedData;
-
-      // Actualized las propiedades del product con los datos actualized
-      this.products[index] = { ...this.products[index], ...restUpdatedData };
-      await this.saveProducts();
-      return this.products[index];
-    } else {
-      return null; // No se  a encontrado ningún product con el ID especificado
-    }
-  }
-
-  async deleteProducts(productId) {
-    const index = this.products.findIndex((p) => p.id === productId);
-
-    if (index !== -1) {
-      // deletea product del array
-      this.products.splice(index, 1);
-      await this.saveProducts();
-      return true; // Indicar que se le di  delete el product correctamente
-    } else {
-      return false; // No se a encontrado ningún product con el ID especificado
-    }
-  }
-}
-const productsManager = new ProductManager("products.json");
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
