@@ -1,6 +1,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const ProductManager = require("./ProductManager"); // Asegúrate de que la ruta sea correcta
+const ProductManager = require("./ProductManager"); 
 
 const app = express();
 const port = 8080;
